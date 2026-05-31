@@ -5,12 +5,18 @@ from googleapiclient.discovery import build
 import plotly.express as px
 from dotenv import load_dotenv
 
+# 🔐 Load API Key
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
+# 🔴 Safety check
+if not API_KEY:
+    st.error("API Key not found. Please check your .env file.")
+    st.stop()
+
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
-# 📌 Get videos from channel
+# 📌 Function to get videos
 def get_videos(channel_id):
     request = youtube.search().list(
         part='snippet',
@@ -29,7 +35,7 @@ def get_videos(channel_id):
             })
     return videos
 
-# 📌 Get video stats
+# 📌 Function to get video stats
 def get_video_stats(video_ids):
     request = youtube.videos().list(
         part='statistics',
@@ -47,44 +53,68 @@ def get_video_stats(video_ids):
         })
     return data
 
-# 🎯 Streamlit UI
+# 🎯 UI CONFIG
 st.set_page_config(page_title="YouTube Dashboard", layout="wide")
 
+# 🎯 TITLE
 st.title("📊 YouTube Data Dashboard")
+st.markdown("### 📈 Analyze YouTube Channel Performance in Real-Time")
 
-channel_id = st.text_input("Enter YouTube Channel ID")
+# 🎯 SIDEBAR INPUT
+st.sidebar.header("🔍 Input Options")
+channel_id = st.sidebar.text_input("Enter YouTube Channel ID")
 
+# 🎯 MAIN LOGIC
 if channel_id:
-    videos = get_videos(channel_id)
+    try:
+        videos = get_videos(channel_id)
 
-    if videos:
-        video_ids = [v['video_id'] for v in videos]
-        stats = get_video_stats(video_ids)
+        if videos:
+            video_ids = [v['video_id'] for v in videos]
+            stats = get_video_stats(video_ids)
 
-        df = pd.DataFrame(stats)
-        df['title'] = [v['title'] for v in videos]
+            df = pd.DataFrame(stats)
+            df['title'] = [v['title'] for v in videos]
 
-        # 📊 Metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Views", df['views'].sum())
-        col2.metric("Total Likes", df['likes'].sum())
-        col3.metric("Total Comments", df['comments'].sum())
+            # 📊 METRICS
+            col1, col2, col3 = st.columns(3)
+            col1.metric("👁 Total Views", f"{df['views'].sum():,}")
+            col2.metric("👍 Total Likes", f"{df['likes'].sum():,}")
+            col3.metric("💬 Total Comments", f"{df['comments'].sum():,}")
 
-        st.divider()
+            st.divider()
 
-        # 📋 Table
-        st.subheader("📋 Video Data")
-        st.dataframe(df)
+            # 📋 DATA TABLE
+            st.subheader("📋 Video Data")
+            st.dataframe(df)
 
-        # 📊 Bar Chart
-        st.subheader("📊 Views per Video")
-        fig = px.bar(df, x='title', y='views')
-        st.plotly_chart(fig, use_container_width=True)
+            # 🏆 TOP VIDEOS
+            st.subheader("🏆 Top Performing Videos")
+            top_videos = df.sort_values(by='views', ascending=False)
+            st.dataframe(top_videos)
 
-        # 📈 Line Chart
-        st.subheader("📈 Views Trend")
-        fig2 = px.line(df, y='views')
-        st.plotly_chart(fig2, use_container_width=True)
+            # 🎯 FILTER
+            st.subheader("🎯 Filter Videos by Views")
+            min_views = st.slider(
+                "Select minimum views",
+                0,
+                int(df['views'].max())
+            )
+            filtered_df = df[df['views'] >= min_views]
+            st.dataframe(filtered_df)
 
-    else:
-        st.warning("No videos found for this channel")
+            # 📊 BAR CHART
+            st.subheader("📊 Views per Video")
+            fig = px.bar(df, x='title', y='views')
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 📈 LINE CHART
+            st.subheader("📈 Views Trend")
+            fig2 = px.line(df, y='views')
+            st.plotly_chart(fig2, use_container_width=True)
+
+        else:
+            st.warning("No videos found for this channel")
+
+    except Exception as e:
+        st.error("❌ Invalid Channel ID or API Error. Please try again.")
