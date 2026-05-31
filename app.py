@@ -1,10 +1,12 @@
+import os
 import streamlit as st
 import pandas as pd
 from googleapiclient.discovery import build
 import plotly.express as px
+from dotenv import load_dotenv
 
-# 🔑 Replace with your API Key
-API_KEY = "AIzaSyAthvUgCQi9D3rr5fz07mhxPvHsRfa1E_c"
+load_dotenv()
+API_KEY = os.getenv("API_KEY")
 
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
